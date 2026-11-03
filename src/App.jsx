@@ -1,26 +1,54 @@
-import React from 'react';
-import { useState } from 'react';
-import { Search, User, Briefcase, Star, Menu } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { supabase } from './supabase';
+import { Search, Briefcase, User, Star } from 'lucide-react';
 
 export default function App() {
 const [activeTab, setActiveTab] = useState('Home');
+const [search, setSearch] = useState('');
+const [jobs, setJobs] = useState([]);
+const [loading, setLoading] = useState(true);
+
+useEffect(() => {
+async function loadJobs() {
+const { data, error } = await supabase
+.from('jobs')
+.select('*');
+
+if (error) {
+console.error('Errore Supabase:', error.message);
+} else {
+setJobs(data || []);
+}
+
+setLoading(false);
+}
+
+loadJobs();
+}, []);
+
+const categories = [
+'Idraulici',
+'Elettricisti',
+'Imbianchini',
+'Giardinieri'
+];
 
 return (
 <div style={{
 fontFamily: 'Arial, sans-serif',
 background: '#f7f8fa',
 minHeight: '100vh',
-color: '#202938'
+color: '#202938',
+paddingBottom: '80px'
 }}>
 <header style={{
-background: '#ffffff',
+background: 'white',
 padding: '20px',
 display: 'flex',
-justifyContent: 'space-between',
-alignItems: 'center'
+justifyContent: 'space-between'
 }}>
 <h1 style={{ color: '#2563eb', margin: 0 }}>IHFY</h1>
-<Menu size={26} />
+<User size={26} />
 </header>
 
 <main style={{ padding: '24px' }}>
@@ -32,24 +60,25 @@ background: 'white',
 padding: '15px',
 borderRadius: '12px',
 display: 'flex',
-gap: '10px',
-alignItems: 'center'
+gap: '10px'
 }}>
 <Search />
 <input
+value={search}
+onChange={e => setSearch(e.target.value)}
 placeholder="Cosa stai cercando?"
 style={{ border: 'none', outline: 'none', flex: 1 }}
 />
 </div>
 
-<h3 style={{ marginTop: '30px' }}>Esplora le categorie</h3>
+<h3>Esplora le categorie</h3>
 
 <div style={{
 display: 'grid',
 gridTemplateColumns: '1fr 1fr',
 gap: '15px'
 }}>
-{['Idraulici', 'Elettricisti', 'Imbianchini', 'Giardinieri'].map(item => (
+{categories.map(item => (
 <div key={item} style={{
 background: 'white',
 padding: '22px',
@@ -61,6 +90,30 @@ textAlign: 'center'
 </div>
 ))}
 </div>
+
+<h3>Ultime richieste di lavoro</h3>
+
+{loading ? (
+<p>Caricamento...</p>
+) : jobs.length === 0 ? (
+<p>Nessuna richiesta disponibile al momento.</p>
+) : (
+jobs
+.filter(job =>
+JSON.stringify(job).toLowerCase().includes(search.toLowerCase())
+)
+.map(job => (
+<div key={job.id} style={{
+background: 'white',
+padding: '16px',
+borderRadius: '12px',
+marginBottom: '12px'
+}}>
+<strong>{job.title || 'Richiesta di lavoro'}</strong>
+<p>{job.description || ''}</p>
+</div>
+))
+)}
 </main>
 
 <nav style={{
