@@ -1,145 +1,202 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { supabase } from './supabase';
-import { Search, Briefcase, User, Star } from 'lucide-react';
+import './index.css';
 
 export default function App() {
-const [activeTab, setActiveTab] = useState('Home');
-const [search, setSearch] = useState('');
-const [jobs, setJobs] = useState([]);
-const [loading, setLoading] = useState(true);
+const [mode, setMode] = useState('login');
+const [role, setRole] = useState('cliente');
+const [fullName, setFullName] = useState('');
+const [email, setEmail] = useState('');
+const [password, setPassword] = useState('');
+const [message, setMessage] = useState('');
+const [loading, setLoading] = useState(false);
 
-useEffect(() => {
-async function loadJobs() {
-const { data, error } = await supabase
-.from('jobs')
-.select('*');
+async function handleSubmit(e) {
+e.preventDefault();
+setMessage('');
+setLoading(true);
 
-if (error) {
-console.error('Errore Supabase:', error.message);
-} else {
-setJobs(data || []);
+try {
+if (mode === 'register') {
+const { error } = await supabase.auth.signUp({
+email,
+password,
+options: {
+data: {
+full_name: fullName,
+role: role
 }
+}
+});
 
+if (error) throw error;
+
+setMessage(
+'Registrazione completata! Controlla la tua email per confermare l’account.'
+);
+} else {
+const { error } = await supabase.auth.signInWithPassword({
+email,
+password
+});
+
+if (error) throw error;
+
+setMessage('Accesso effettuato con successo!');
+}
+} catch (error) {
+setMessage(error.message);
+} finally {
 setLoading(false);
 }
-
-loadJobs();
-}, []);
-
-const categories = [
-'Idraulici',
-'Elettricisti',
-'Imbianchini',
-'Giardinieri'
-];
+}
 
 return (
-<div style={{
-fontFamily: 'Arial, sans-serif',
-background: '#f7f8fa',
+<main style={{
 minHeight: '100vh',
-color: '#202938',
-paddingBottom: '80px'
+background: '#f4f7f5',
+padding: '30px 16px',
+fontFamily: 'Arial, sans-serif'
 }}>
-<header style={{
-background: 'white',
-padding: '20px',
-display: 'flex',
-justifyContent: 'space-between'
-}}>
-<h1 style={{ color: '#2563eb', margin: 0 }}>IHFY</h1>
-<User size={26} />
-</header>
-
-<main style={{ padding: '24px' }}>
-<h2>Trova il professionista giusto</h2>
-<p>La tua rete di professionisti di fiducia.</p>
-
 <div style={{
+maxWidth: '430px',
+margin: '40px auto',
 background: 'white',
-padding: '15px',
-borderRadius: '12px',
-display: 'flex',
-gap: '10px'
+padding: '30px',
+borderRadius: '18px',
+boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
 }}>
-<Search />
+<h1 style={{
+textAlign: 'center',
+color: '#168653',
+fontSize: '38px',
+marginBottom: '5px'
+}}>
+IHFY
+</h1>
+
+<p style={{ textAlign: 'center', color: '#666' }}>
+Trova il professionista giusto per te
+</p>
+
+<h2 style={{ textAlign: 'center', marginTop: '30px' }}>
+{mode === 'register' ? 'Crea il tuo account' : 'Bentornato!'}
+</h2>
+
+<form onSubmit={handleSubmit}>
+{mode === 'register' && (
+<>
+<label>Nome e cognome</label>
 <input
-value={search}
-onChange={e => setSearch(e.target.value)}
-placeholder="Cosa stai cercando?"
-style={{ border: 'none', outline: 'none', flex: 1 }}
+required
+value={fullName}
+onChange={e => setFullName(e.target.value)}
+placeholder="Il tuo nome"
+style={inputStyle}
 />
-</div>
 
-<h3>Esplora le categorie</h3>
-
-<div style={{
-display: 'grid',
-gridTemplateColumns: '1fr 1fr',
-gap: '15px'
-}}>
-{categories.map(item => (
-<div key={item} style={{
-background: 'white',
-padding: '22px',
-borderRadius: '14px',
-textAlign: 'center'
-}}>
-<Briefcase size={28} color="#2563eb" />
-<p>{item}</p>
-</div>
-))}
-</div>
-
-<h3>Ultime richieste di lavoro</h3>
-
-{loading ? (
-<p>Caricamento...</p>
-) : jobs.length === 0 ? (
-<p>Nessuna richiesta disponibile al momento.</p>
-) : (
-jobs
-.filter(job =>
-JSON.stringify(job).toLowerCase().includes(search.toLowerCase())
-)
-.map(job => (
-<div key={job.id} style={{
-background: 'white',
-padding: '16px',
-borderRadius: '12px',
-marginBottom: '12px'
-}}>
-<strong>{job.title || 'Richiesta di lavoro'}</strong>
-<p>{job.description || ''}</p>
-</div>
-))
+<label>Seleziona il tuo profilo</label>
+<select
+value={role}
+onChange={e => setRole(e.target.value)}
+style={inputStyle}
+>
+<option value="cliente">Sono un cliente</option>
+<option value="artigiano">Sono un artigiano</option>
+</select>
+</>
 )}
-</main>
 
-<nav style={{
-position: 'fixed',
-bottom: 0,
-width: '100%',
-background: 'white',
-display: 'flex',
-justifyContent: 'space-around',
-padding: '16px 0'
-}}>
-{['Home', 'Cerca', 'Preferiti', 'Profilo'].map(tab => (
+<label>Email</label>
+<input
+type="email"
+required
+value={email}
+onChange={e => setEmail(e.target.value)}
+placeholder="nome@email.it"
+style={inputStyle}
+/>
+
+<label>Password</label>
+<input
+type="password"
+required
+minLength={6}
+value={password}
+onChange={e => setPassword(e.target.value)}
+placeholder="Almeno 6 caratteri"
+style={inputStyle}
+/>
+
 <button
-key={tab}
-onClick={() => setActiveTab(tab)}
+type="submit"
+disabled={loading}
+style={{
+width: '100%',
+padding: '14px',
+marginTop: '20px',
+background: '#168653',
+color: 'white',
+border: 'none',
+borderRadius: '10px',
+fontSize: '16px',
+cursor: 'pointer'
+}}
+>
+{loading
+? 'Attendere...'
+: mode === 'register'
+? 'Registrati'
+: 'Accedi'}
+</button>
+</form>
+
+{message && (
+<p style={{
+marginTop: '20px',
+textAlign: 'center',
+color: message.includes('successo') ||
+message.includes('completata')
+? 'green'
+: 'red'
+}}>
+{message}
+</p>
+)}
+
+<p style={{ textAlign: 'center', marginTop: '25px' }}>
+{mode === 'register'
+? 'Hai già un account?'
+: 'Non hai ancora un account?'}
+{' '}
+<button
+onClick={() => {
+setMode(mode === 'register' ? 'login' : 'register');
+setMessage('');
+}}
 style={{
 border: 'none',
 background: 'none',
-color: activeTab === tab ? '#2563eb' : '#777',
-fontWeight: 'bold'
+color: '#168653',
+fontWeight: 'bold',
+cursor: 'pointer'
 }}
 >
-{tab}
+{mode === 'register' ? 'Accedi' : 'Registrati'}
 </button>
-))}
-</nav>
+</p>
 </div>
+</main>
 );
 }
+
+const inputStyle = {
+width: '100%',
+padding: '12px',
+marginTop: '7px',
+marginBottom: '18px',
+border: '1px solid #ddd',
+borderRadius: '8px',
+boxSizing: 'border-box',
+fontSize: '15px'
+};
