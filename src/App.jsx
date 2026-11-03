@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState } from 'react';
 import { Search, User, Briefcase, Star, Menu } from 'lucide-react';
 
