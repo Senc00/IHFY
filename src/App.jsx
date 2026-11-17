@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Search, Briefcase, Menu, User, LogOut } from 'lucide-react';
 import { supabase } from './supabase';
 
