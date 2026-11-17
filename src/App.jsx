@@ -1,202 +1,190 @@
-import React, { useState } from 'react';
+
+import { useEffect, useState } from 'react';
+import { Search, Briefcase, Menu, User, LogOut } from 'lucide-react';
 import { supabase } from './supabase';
-import './index.css';
 
 export default function App() {
-const [mode, setMode] = useState('login');
-const [role, setRole] = useState('cliente');
-const [fullName, setFullName] = useState('');
-const [email, setEmail] = useState('');
-const [password, setPassword] = useState('');
-const [message, setMessage] = useState('');
-const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('Home');
+  const [session, setSession] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-async function handleSubmit(e) {
-e.preventDefault();
-setMessage('');
-setLoading(true);
+  useEffect(() => {
+    let mounted = true;
 
-try {
-if (mode === 'register') {
-const { error } = await supabase.auth.signUp({
-email,
-password,
-options: {
-data: {
-full_name: fullName,
-role: role
+    async function loadUser(userSession) {
+      if (!mounted) return;
+
+      setSession(userSession);
+
+      if (!userSession) {
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, role')
+        .eq('id', userSession.user.id)
+        .maybeSingle();
+
+      if (!mounted) return;
+
+      if (error) {
+        console.error('Errore profilo:', error.message);
+      }
+
+      setProfile(data || null);
+      setLoading(false);
+    }
+
+    supabase.auth.getSession().then(({ data }) => {
+      loadUser(data.session);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, newSession) => {
+        loadUser(newSession);
+      }
+    );
+
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  async function logout() {
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      alert(error.message);
+    }
+  }
+
+  if (loading) {
+    return <div style={{ padding: 30 }}>Caricamento IHFY...</div>;
+  }
+
+  const role = profile?.role;
+
+  return (
+    <div style={{
+      fontFamily: 'Arial, sans-serif',
+      background: '#f7f8fa',
+      minHeight: '100vh',
+      color: '#202938',
+      paddingBottom: 85
+    }}>
+      <header style={{
+        background: '#fff',
+        padding: 20,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }}>
+        <h1 style={{ color: '#2563eb', margin: 0 }}>IHFY</h1>
+        {session ? (
+          <button onClick={logout}>
+            <LogOut size={20} /> Esci
+          </button>
+        ) : (
+          <Menu size={26} />
+        )}
+      </header>
+
+      <main style={{ padding: 24 }}>
+        {!session ? (
+          <>
+            <h2>Trova il professionista giusto</h2>
+            <p>La tua rete di professionisti di fiducia.</p>
+            <p>Accedi per utilizzare tutte le funzionalità di IHFY.</p>
+          </>
+        ) : !profile ? (
+          <>
+            <h2>Benvenuto su IHFY!</h2>
+            <p>Non riusciamo ancora a trovare il tuo profilo.</p>
+            <p>Controlla la tabella profiles su Supabase.</p>
+          </>
+        ) : role === 'client' ? (
+          <>
+            <h2>Ciao {profile.full_name || 'Cliente'}!</h2>
+            <p>Benvenuto nella tua area personale.</p>
+            <h3>La tua Dashboard Cliente</h3>
+            <div style={{
+              background: '#fff',
+              padding: 20,
+              borderRadius: 12,
+              marginTop: 20
+            }}>
+              <User color="#2563eb" size={28} />
+              <p>Ruolo: Cliente</p>
+              <p>Email: {session.user.email}</p>
+              <p>Da qui potrai gestire le tue richieste di lavoro.</p>
+            </div>
+          </>
+        ) : role === 'artisan' ? (
+          <>
+            <h2>Ciao {profile.full_name || 'Artigiano'}!</h2>
+            <p>Benvenuto nella tua area professionale.</p>
+            <h3>Dashboard Artigiano</h3>
+          </>
+        ) : (
+          <>
+            <h2>Benvenuto su IHFY!</h2>
+            <p>Ruolo non ancora riconosciuto: {role || 'non impostato'}</p>
+          </>
+        )}
+
+        {session && profile && (
+          <>
+            <h3 style={{ marginTop: 30 }}>Esplora le categorie</h3>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: 15
+            }}>
+              {['Idraulici', 'Elettricisti', 'Imbianchini', 'Giardinieri'].map(item => (
+                <div key={item} style={{
+                  background: '#fff',
+                  padding: 22,
+                  borderRadius: 14,
+                  textAlign: 'center'
+                }}>
+                  <Briefcase size={28} color="#2563eb" />
+                  <p>{item}</p>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </main>
+
+      <nav style={{
+        position: 'fixed',
+        bottom: 0,
+        width: '100%',
+        background: '#fff',
+        display: 'flex',
+        justifyContent: 'space-around',
+        padding: '16px 0'
+      }}>
+        {['Home', 'Cerca', 'Preferiti', 'Profilo'].map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            style={{
+              border: 'none',
+              background: 'none',
+              color: activeTab === tab ? '#2563eb' : '#777',
+              fontWeight: 'bold'
+            }}
+          >
+            {tab}
+          </button>
+        ))}
+      </nav>
+    </div>
+  );
 }
-}
-});
-
-if (error) throw error;
-
-setMessage(
-'Registrazione completata! Controlla la tua email per confermare l’account.'
-);
-} else {
-const { error } = await supabase.auth.signInWithPassword({
-email,
-password
-});
-
-if (error) throw error;
-
-setMessage('Accesso effettuato con successo!');
-}
-} catch (error) {
-setMessage(error.message);
-} finally {
-setLoading(false);
-}
-}
-
-return (
-<main style={{
-minHeight: '100vh',
-background: '#f4f7f5',
-padding: '30px 16px',
-fontFamily: 'Arial, sans-serif'
-}}>
-<div style={{
-maxWidth: '430px',
-margin: '40px auto',
-background: 'white',
-padding: '30px',
-borderRadius: '18px',
-boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
-}}>
-<h1 style={{
-textAlign: 'center',
-color: '#168653',
-fontSize: '38px',
-marginBottom: '5px'
-}}>
-IHFY
-</h1>
-
-<p style={{ textAlign: 'center', color: '#666' }}>
-Trova il professionista giusto per te
-</p>
-
-<h2 style={{ textAlign: 'center', marginTop: '30px' }}>
-{mode === 'register' ? 'Crea il tuo account' : 'Bentornato!'}
-</h2>
-
-<form onSubmit={handleSubmit}>
-{mode === 'register' && (
-<>
-<label>Nome e cognome</label>
-<input
-required
-value={fullName}
-onChange={e => setFullName(e.target.value)}
-placeholder="Il tuo nome"
-style={inputStyle}
-/>
-
-<label>Seleziona il tuo profilo</label>
-<select
-value={role}
-onChange={e => setRole(e.target.value)}
-style={inputStyle}
->
-<option value="cliente">Sono un cliente</option>
-<option value="artigiano">Sono un artigiano</option>
-</select>
-</>
-)}
-
-<label>Email</label>
-<input
-type="email"
-required
-value={email}
-onChange={e => setEmail(e.target.value)}
-placeholder="nome@email.it"
-style={inputStyle}
-/>
-
-<label>Password</label>
-<input
-type="password"
-required
-minLength={6}
-value={password}
-onChange={e => setPassword(e.target.value)}
-placeholder="Almeno 6 caratteri"
-style={inputStyle}
-/>
-
-<button
-type="submit"
-disabled={loading}
-style={{
-width: '100%',
-padding: '14px',
-marginTop: '20px',
-background: '#168653',
-color: 'white',
-border: 'none',
-borderRadius: '10px',
-fontSize: '16px',
-cursor: 'pointer'
-}}
->
-{loading
-? 'Attendere...'
-: mode === 'register'
-? 'Registrati'
-: 'Accedi'}
-</button>
-</form>
-
-{message && (
-<p style={{
-marginTop: '20px',
-textAlign: 'center',
-color: message.includes('successo') ||
-message.includes('completata')
-? 'green'
-: 'red'
-}}>
-{message}
-</p>
-)}
-
-<p style={{ textAlign: 'center', marginTop: '25px' }}>
-{mode === 'register'
-? 'Hai già un account?'
-: 'Non hai ancora un account?'}
-{' '}
-<button
-onClick={() => {
-setMode(mode === 'register' ? 'login' : 'register');
-setMessage('');
-}}
-style={{
-border: 'none',
-background: 'none',
-color: '#168653',
-fontWeight: 'bold',
-cursor: 'pointer'
-}}
->
-{mode === 'register' ? 'Accedi' : 'Registrati'}
-</button>
-</p>
-</div>
-</main>
-);
-}
-
-const inputStyle = {
-width: '100%',
-padding: '12px',
-marginTop: '7px',
-marginBottom: '18px',
-border: '1px solid #ddd',
-borderRadius: '8px',
-boxSizing: 'border-box',
-fontSize: '15px'
-};
