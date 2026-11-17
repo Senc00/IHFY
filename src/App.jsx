@@ -12,6 +12,13 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [jobs, setJobs] = useState([]);
+  const [authMode, setAuthMode] = useState('login');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authName, setAuthName] = useState('');
+  const [authRole, setAuthRole] = useState('client');
+  const [authMessage, setAuthMessage] = useState('');
+  const [authSaving, setAuthSaving] = useState(false);
 
   const [form, setForm] = useState({
     title: '',
@@ -85,6 +92,71 @@ export default function App() {
     }
 
     setJobs(data || []);
+  }
+
+  async function handleAuthSubmit(event) {
+    event.preventDefault();
+    setAuthMessage('');
+    setAuthSaving(true);
+
+    if (authMode === 'register') {
+      const { data, error } = await supabase.auth.signUp({
+        email: authEmail.trim(),
+        password: authPassword,
+        options: {
+          data: {
+            full_name: authName.trim(),
+            role: authRole
+          }
+        }
+      });
+
+      if (error) {
+        setAuthMessage(error.message);
+        setAuthSaving(false);
+        return;
+      }
+
+      // Se Supabase restituisce una sessione subito, proviamo a creare/aggiornare
+      // il profilo. Se è attiva la conferma email, il profilo deve essere creato
+      // dal trigger Supabase già usato dal progetto, leggendo raw_user_meta_data.
+      if (data.session && data.user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: data.user.id,
+            full_name: authName.trim(),
+            role: authRole
+          }, { onConflict: 'id' });
+
+        if (profileError) {
+          setAuthMessage(
+            'Account creato, ma non è stato possibile salvare il profilo: ' +
+            profileError.message
+          );
+          setAuthSaving(false);
+          return;
+        }
+
+        setAuthMessage('Registrazione completata. Accesso in corso...');
+      } else {
+        setAuthMessage(
+          'Account creato. Controlla la tua email per confermare la registrazione. ' +
+          'Il profilo deve essere creato dal trigger Supabase usando il ruolo scelto.'
+        );
+      }
+
+      setAuthSaving(false);
+      return;
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: authEmail.trim(),
+      password: authPassword
+    });
+
+    if (error) setAuthMessage(error.message);
+    setAuthSaving(false);
   }
 
   async function logout() {
@@ -198,11 +270,99 @@ export default function App() {
 
       <main style={{ padding: 24 }}>
         {!session ? (
-          <>
-            <h2>Trova il professionista giusto</h2>
-            <p>La tua rete di professionisti di fiducia.</p>
-            <p>Accedi per utilizzare IHFY.</p>
-          </>
+          <section style={{
+            maxWidth: 460,
+            margin: '20px auto',
+            background: '#fff',
+            padding: 22,
+            borderRadius: 14,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.05)'
+          }}>
+            <h2>{authMode === 'login' ? 'Accedi a IHFY' : 'Crea il tuo account IHFY'}</h2>
+            <p>Trova il professionista giusto o entra nella tua area professionale.</p>
+
+            <form onSubmit={handleAuthSubmit}>
+              {authMode === 'register' && (
+                <>
+                  <label>Nome e cognome</label>
+                  <input
+                    value={authName}
+                    onChange={event => setAuthName(event.target.value)}
+                    style={{ ...inputStyle, marginTop: 8, marginBottom: 16 }}
+                    autoComplete="name"
+                    required
+                  />
+
+                  <label>Tipo di account</label>
+                  <select
+                    value={authRole}
+                    onChange={event => setAuthRole(event.target.value)}
+                    style={{ ...inputStyle, marginTop: 8, marginBottom: 16 }}
+                  >
+                    <option value="client">Cliente</option>
+                    <option value="artisan">Artigiano</option>
+                  </select>
+                </>
+              )}
+
+              <label>Email</label>
+              <input
+                type="email"
+                value={authEmail}
+                onChange={event => setAuthEmail(event.target.value)}
+                style={{ ...inputStyle, marginTop: 8, marginBottom: 16 }}
+                autoComplete="email"
+                required
+              />
+
+              <label>Password (almeno 6 caratteri)</label>
+              <input
+                type="password"
+                value={authPassword}
+                onChange={event => setAuthPassword(event.target.value)}
+                style={{ ...inputStyle, marginTop: 8, marginBottom: 16 }}
+                autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                minLength={6}
+                required
+              />
+
+              {authMessage && (
+                <p style={{ color: authMessage.includes('completata') || authMessage.includes('Controlla') ? '#15803d' : '#b91c1c' }}>
+                  {authMessage}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={authSaving}
+                style={{ ...buttonStyle, width: '100%', opacity: authSaving ? 0.7 : 1 }}
+              >
+                {authSaving
+                  ? 'Attendi...'
+                  : authMode === 'login'
+                    ? 'Accedi'
+                    : 'Crea account'}
+              </button>
+            </form>
+
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode(authMode === 'login' ? 'register' : 'login');
+                setAuthMessage('');
+              }}
+              style={{
+                ...buttonStyle,
+                width: '100%',
+                marginTop: 12,
+                background: '#475569'
+              }}
+            >
+              {authMode === 'login'
+                ? 'Non hai un account? Registrati'
+                : 'Hai già un account? Accedi'}
+            </button>
+          </section>
         ) : !profile ? (
           <h2>Profilo non trovato. Controlla Supabase.</h2>
         ) : profile.role === 'client' ? (
