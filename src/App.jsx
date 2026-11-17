@@ -12,6 +12,12 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [jobs, setJobs] = useState([]);
+  const [artisanJobs, setArtisanJobs] = useState([]);
+  const [artisanMessage, setArtisanMessage] = useState('');
+  const [activeQuoteJob, setActiveQuoteJob] = useState(null);
+  const [quoteAmount, setQuoteAmount] = useState('');
+  const [quoteDescription, setQuoteDescription] = useState('');
+  const [quoteSaving, setQuoteSaving] = useState(false);
   const [authMode, setAuthMode] = useState('login');
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
@@ -77,6 +83,9 @@ export default function App() {
     if (session && profile?.role === 'client') {
       loadJobs();
     }
+    if (session && profile?.role === 'artisan') {
+      loadArtisanJobs();
+    }
   }, [session, profile]);
 
   async function loadJobs() {
@@ -92,6 +101,61 @@ export default function App() {
     }
 
     setJobs(data || []);
+  }
+
+  async function loadArtisanJobs() {
+    setArtisanMessage('');
+    const { data, error } = await supabase
+      .from('jobs')
+      .select('*')
+      .eq('status', 'open')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Errore caricamento lavori:', error);
+      setArtisanMessage('Non riesco a caricare le richieste: ' + error.message);
+      return;
+    }
+
+    setArtisanJobs(data || []);
+  }
+
+  async function submitQuote(event) {
+    event.preventDefault();
+    setArtisanMessage('');
+
+    const amount = Number(quoteAmount);
+    if (!activeQuoteJob || !Number.isFinite(amount) || amount <= 0) {
+      setArtisanMessage('Inserisci un importo valido maggiore di zero.');
+      return;
+    }
+
+    setQuoteSaving(true);
+    const { error } = await supabase
+      .from('quotes')
+      .insert({
+        job_id: activeQuoteJob,
+        artisan_id: session.user.id,
+        amount,
+        description: quoteDescription.trim() || null
+      });
+
+    setQuoteSaving(false);
+
+    if (error) {
+      console.error('Errore invio preventivo:', error);
+      setArtisanMessage(
+        error.code === '23505'
+          ? 'Hai già inviato un preventivo per questa richiesta.'
+          : 'Errore durante l’invio: ' + error.message
+      );
+      return;
+    }
+
+    setArtisanMessage('Preventivo inviato con successo!');
+    setActiveQuoteJob(null);
+    setQuoteAmount('');
+    setQuoteDescription('');
   }
 
   async function handleAuthSubmit(event) {
@@ -577,6 +641,124 @@ export default function App() {
           <>
             <h2>Ciao {profile.full_name || 'Artigiano'}!</h2>
             <p>Benvenuto nella tua area professionale.</p>
+            <div style={{
+              background: 'white',
+              padding: 20,
+              borderRadius: 14,
+              marginTop: 20
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 12,
+                flexWrap: 'wrap'
+              }}>
+                <h3 style={{ margin: 0 }}>Richieste disponibili</h3>
+                <button
+                  type="button"
+                  onClick={loadArtisanJobs}
+                  style={{ ...buttonStyle, background: '#475569' }}
+                >
+                  Aggiorna
+                </button>
+              </div>
+
+              {artisanMessage && (
+                <p style={{
+                  color: artisanMessage.includes('successo') ? '#15803d' : '#b91c1c',
+                  fontWeight: 'bold'
+                }}>
+                  {artisanMessage}
+                </p>
+              )}
+
+              {artisanJobs.length === 0 ? (
+                <p>Al momento non ci sono richieste aperte.</p>
+              ) : artisanJobs.map(job => (
+                <div key={job.id} style={{
+                  border: '1px solid #e5e7eb',
+                  borderRadius: 12,
+                  padding: 16,
+                  marginTop: 15
+                }}>
+                  <h3 style={{ marginTop: 0 }}>{job.title}</h3>
+                  <p>{job.description}</p>
+                  <p><strong>Categoria:</strong> {job.category}</p>
+                  <p><strong>Località:</strong> {job.town} ({job.province})</p>
+                  <p><strong>Urgenza:</strong> {job.urgency}</p>
+
+                  {activeQuoteJob === job.id ? (
+                    <form onSubmit={submitQuote}>
+                      <label>Importo del preventivo (€)</label>
+                      <input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={quoteAmount}
+                        onChange={event => setQuoteAmount(event.target.value)}
+                        placeholder="Es. 150"
+                        style={{ ...inputStyle, marginTop: 8, marginBottom: 12 }}
+                        required
+                      />
+                      <label>Messaggio e dettagli (facoltativo)</label>
+                      <textarea
+                        value={quoteDescription}
+                        onChange={event => setQuoteDescription(event.target.value)}
+                        placeholder="Descrivi cosa comprende il preventivo..."
+                        style={{ ...inputStyle, marginTop: 8, minHeight: 90 }}
+                      />
+                      <button
+                        type="submit"
+                        disabled={quoteSaving}
+                        style={{ ...buttonStyle, width: '100%', marginTop: 12 }}
+                      >
+                        {quoteSaving ? 'Invio...' : 'Invia preventivo'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveQuoteJob(null);
+                          setQuoteAmount('');
+                          setQuoteDescription('');
+                        }}
+                        style={{
+                          ...buttonStyle,
+                          width: '100%',
+                          marginTop: 8,
+                          background: '#64748b'
+                        }}
+                      >
+                        Annulla
+                      </button>
+                    </form>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveQuoteJob(job.id);
+                        setArtisanMessage('');
+                      }}
+                      style={buttonStyle}
+                    >
+                      Invia un preventivo
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div style={{
+              background: 'white',
+              padding: 20,
+              borderRadius: 14,
+              marginTop: 16
+            }}>
+              <h3>Il mio profilo professionale</h3>
+              <p>{profile.full_name || 'Artigiano'}</p>
+              <p>{session.user.email}</p>
+              <p>Ruolo: Artigiano</p>
+              <button style={buttonStyle} onClick={logout}>Esci</button>
+            </div>
           </>
         ) : (
           <h2>Ruolo non riconosciuto: {profile.role}</h2>
