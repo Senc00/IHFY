@@ -12,6 +12,9 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [jobs, setJobs] = useState([]);
+  const [quotes, setQuotes] = useState([]);
+  const [quotesMessage, setQuotesMessage] = useState('');
+  const [quotesLoading, setQuotesLoading] = useState(false);
   const [artisanJobs, setArtisanJobs] = useState([]);
   const [artisanMessage, setArtisanMessage] = useState('');
   const [activeQuoteJob, setActiveQuoteJob] = useState(null);
@@ -101,6 +104,32 @@ export default function App() {
     }
 
     setJobs(data || []);
+    await loadClientQuotes(data || []);
+  }
+
+  async function loadClientQuotes(clientJobs) {
+    const jobIds = clientJobs.map(job => job.id);
+    setQuotesMessage('');
+    if (jobIds.length === 0) {
+      setQuotes([]);
+      return;
+    }
+
+    setQuotesLoading(true);
+    const { data, error } = await supabase
+      .from('quotes')
+      .select('id, job_id, artisan_id, amount, description, status, created_at')
+      .in('job_id', jobIds)
+      .order('created_at', { ascending: false });
+    setQuotesLoading(false);
+
+    if (error) {
+      console.error('Errore caricamento preventivi:', error);
+      setQuotesMessage('Non riesco a caricare i preventivi: ' + error.message);
+      return;
+    }
+
+    setQuotes(data || []);
   }
 
   async function loadArtisanJobs() {
@@ -509,8 +538,49 @@ export default function App() {
                     <p>{job.category} · {job.town} ({job.province})</p>
                     <p>Urgenza: {job.urgency}</p>
                     <p>Stato: {job.status}</p>
+                    <div style={{
+                      marginTop: 16,
+                      paddingTop: 12,
+                      borderTop: '1px solid #e5e7eb'
+                    }}>
+                      <h4 style={{ margin: '0 0 10px' }}>Preventivi ricevuti</h4>
+                      {quotesLoading ? (
+                        <p>Caricamento preventivi...</p>
+                      ) : quotes.filter(quote => quote.job_id === job.id).length === 0 ? (
+                        <p>Non hai ancora ricevuto preventivi per questa richiesta.</p>
+                      ) : quotes.filter(quote => quote.job_id === job.id).map(quote => (
+                        <div key={quote.id} style={{
+                          background: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: 10,
+                          padding: 12,
+                          marginTop: 8
+                        }}>
+                          <p style={{ fontSize: 18, fontWeight: 'bold', margin: '0 0 6px' }}>
+                            {Number(quote.amount).toLocaleString('it-IT', {
+                              style: 'currency',
+                              currency: 'EUR'
+                            })}
+                          </p>
+                          <p style={{ margin: '4px 0' }}>{quote.description || 'Nessuna descrizione aggiuntiva.'}</p>
+                          <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: 13 }}>
+                            Stato: {quote.status || 'pending'} · Inviato il {new Date(quote.created_at).toLocaleDateString('it-IT')}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
+                {quotesMessage && (
+                  <p style={{ color: '#b91c1c', fontWeight: 'bold' }}>{quotesMessage}</p>
+                )}
+                <button
+                  type="button"
+                  onClick={loadJobs}
+                  style={{ ...buttonStyle, marginTop: 14, background: '#475569' }}
+                >
+                  Aggiorna preventivi
+                </button>
               </>
             )}
 
