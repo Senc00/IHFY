@@ -19,6 +19,8 @@ export default function App() {
   const [assignedJobs, setAssignedJobs] = useState([]);
   const [assignedLoading, setAssignedLoading] = useState(false);
   const [assignedError, setAssignedError] = useState('');
+  const [completionSavingId, setCompletionSavingId] = useState(null);
+  const [completionMessage, setCompletionMessage] = useState('');
   const [chatJobId, setChatJobId] = useState(null);
   const [chatTitle, setChatTitle] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
@@ -203,6 +205,26 @@ export default function App() {
     }
   }
 
+  async function advanceCompletion(job, isClient) {
+    const prompt = isClient
+      ? 'Confermi che il lavoro è stato completato?'
+      : 'Confermi di aver terminato il lavoro? Il cliente dovrà approvarlo.';
+    if (!window.confirm(prompt)) return;
+    setCompletionSavingId(job.id);
+    setCompletionMessage('');
+    try {
+      const { error } = await supabase.rpc('advance_job_completion', { p_job_id: job.id });
+      if (error) throw error;
+      if (isClient) await loadJobs();
+      else await loadAssignedJobs();
+      setCompletionMessage(isClient ? 'Lavoro completato e confermato!' : 'Lavoro segnato come terminato. In attesa del cliente.');
+    } catch (error) {
+      setCompletionMessage('Errore aggiornamento lavoro: ' + error.message);
+    } finally {
+      setCompletionSavingId(null);
+    }
+  }
+
   async function loadArtisanJobs() {
     setArtisanMessage('');
     const { data, error } = await supabase
@@ -246,7 +268,7 @@ export default function App() {
       .from('jobs')
       .select('id, title, description, category, town, province, urgency, status, accepted_quote_id, created_at')
       .in('id', jobIds)
-      .eq('status', 'assigned');
+      .in('status', ['assigned', 'work_done', 'completed']);
     if (jobsError) {
       setAssignedError('Impossibile caricare i lavori assegnati: ' + jobsError.message);
       setAssignedLoading(false);
@@ -574,6 +596,7 @@ export default function App() {
             <h2>Ciao {profile.full_name || 'Cliente'}!</h2>
             <p>Benvenuto nella tua area personale.</p>
 
+            {completionMessage && <p style={{ fontWeight: 'bold' }}>{completionMessage}</p>}
             {message && (
               <p style={{ color: '#15803d', fontWeight: 'bold' }}>
                 {message}
@@ -648,7 +671,14 @@ export default function App() {
                     <p>{job.description}</p>
                     <p>{job.category} · {job.town} ({job.province})</p>
                     <p>Urgenza: {job.urgency}</p>
-                    <p>Stato: {job.status}</p>
+                    <p>Stato: {job.status === 'assigned' ? 'Assegnato' : job.status === 'work_done' ? 'Terminato dall’artigiano · da confermare' : job.status === 'completed' ? 'Completato' : job.status}</p>
+                    {job.status === 'work_done' && (
+                      <button type="button" disabled={completionSavingId !== null}
+                        onClick={() => advanceCompletion(job, true)}
+                        style={{ ...buttonStyle, marginBottom: 12 }}>
+                        {completionSavingId === job.id ? 'Conferma in corso...' : 'Conferma completamento'}
+                      </button>
+                    )}
                     <div style={{
                       marginTop: 16,
                       paddingTop: 12,
@@ -951,11 +981,14 @@ export default function App() {
               </div>
               {assignedLoading ? <p>Caricamento lavori assegnati...</p> : null}
               {assignedError ? <p style={{ color: '#b91c1c' }}>{assignedError}</p> : null}
+              {completionMessage && <p>{completionMessage}</p>}
               {!assignedLoading && !assignedError && assignedJobs.length === 0 ? (
                 <p>Non hai ancora lavori assegnati. Quando un cliente accetta un tuo preventivo, lo troverai qui.</p>
               ) : assignedJobs.map(job => (
                 <div key={job.id} style={{ border: '1px solid #bfdbfe', background: '#eff6ff', borderRadius: 12, padding: 16, marginTop: 15 }}>
-                  <p style={{ color: '#166534', fontWeight: 'bold', marginTop: 0 }}>✓ Preventivo accettato · Lavoro assegnato</p>
+                  <p style={{ color: '#166534', fontWeight: 'bold', marginTop: 0 }}>
+                    {job.status === 'completed' ? '✓ Lavoro completato' : job.status === 'work_done' ? 'In attesa della conferma del cliente' : '✓ Preventivo accettato · Lavoro assegnato'}
+                  </p>
                   <h3>{job.title}</h3>
                   <p>{job.description}</p>
                   <p><strong>Categoria:</strong> {job.category}</p>
@@ -963,6 +996,13 @@ export default function App() {
                   <p><strong>Urgenza:</strong> {job.urgency}</p>
                   <p><strong>Importo concordato:</strong> {Number(job.acceptedQuote.amount).toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}</p>
                   {job.acceptedQuote.description && <p><strong>Dettagli preventivo:</strong> {job.acceptedQuote.description}</p>}
+                  {job.status === 'assigned' && (
+                    <button type="button" disabled={completionSavingId !== null}
+                      onClick={() => advanceCompletion(job, false)}
+                      style={{ ...buttonStyle, marginRight: 8, marginBottom: 8 }}>
+                      {completionSavingId === job.id ? 'Salvataggio...' : 'Segna lavoro terminato'}
+                    </button>
+                  )}
                   <button type="button" onClick={() => openChat(job)} style={buttonStyle}>Apri chat con il cliente</button>
                 </div>
               ))}
