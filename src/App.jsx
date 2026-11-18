@@ -19,6 +19,12 @@ export default function App() {
   const [assignedJobs, setAssignedJobs] = useState([]);
   const [assignedLoading, setAssignedLoading] = useState(false);
   const [assignedError, setAssignedError] = useState('');
+  const [chatJobId, setChatJobId] = useState(null);
+  const [chatTitle, setChatTitle] = useState('');
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatText, setChatText] = useState('');
+  const [chatError, setChatError] = useState('');
+  const [chatSending, setChatSending] = useState(false);
   const [artisanMessage, setArtisanMessage] = useState('');
   const [activeQuoteJob, setActiveQuoteJob] = useState(null);
   const [quoteAmount, setQuoteAmount] = useState('');
@@ -95,6 +101,50 @@ export default function App() {
       loadAssignedJobs();
     }
   }, [session, profile]);
+
+  useEffect(() => {
+    if (!chatJobId || !session?.user?.id) return;
+    let alive = true;
+    async function refreshChat() {
+      const { data, error } = await supabase
+        .from('job_messages')
+        .select('id, job_id, sender_id, body, created_at')
+        .eq('job_id', chatJobId)
+        .order('created_at', { ascending: true })
+        .limit(200);
+      if (!alive) return;
+      if (error) setChatError('Errore caricamento chat: ' + error.message);
+      else { setChatMessages(data || []); setChatError(''); }
+    }
+    refreshChat();
+    const timer = setInterval(refreshChat, 5000);
+    return () => { alive = false; clearInterval(timer); };
+  }, [chatJobId, session?.user?.id]);
+
+  function openChat(job) {
+    setChatJobId(job.id);
+    setChatTitle(job.title);
+    setChatText('');
+    setChatMessages([]);
+    setChatError('');
+  }
+
+  async function sendChatMessage(event) {
+    event.preventDefault();
+    const body = chatText.trim();
+    if (!body || !chatJobId || !session?.user?.id || chatSending) return;
+    setChatSending(true);
+    const { error } = await supabase.from('job_messages').insert({
+      job_id: chatJobId, sender_id: session.user.id, body
+    });
+    setChatSending(false);
+    if (error) { setChatError('Invio non riuscito: ' + error.message); return; }
+    setChatText('');
+    const { data } = await supabase.from('job_messages')
+      .select('id, job_id, sender_id, body, created_at')
+      .eq('job_id', chatJobId).order('created_at', { ascending: true }).limit(200);
+    if (data) setChatMessages(data);
+  }
 
   async function loadJobs() {
     const { data, error } = await supabase
@@ -627,6 +677,9 @@ export default function App() {
                           <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: 13 }}>
                             Stato: {quote.status || 'pending'} · Inviato il {new Date(quote.created_at).toLocaleDateString('it-IT')}
                           </p>
+                          {quote.status === 'accepted' && job.accepted_quote_id === quote.id && (
+                            <button type="button" onClick={() => openChat(job)} style={{ ...buttonStyle, marginTop: 10, marginRight: 8 }}>Apri chat</button>
+                          )}
                           {quote.status === 'accepted' && (
                             <p style={{ color: '#15803d', fontWeight: 'bold' }}>✓ Preventivo accettato</p>
                           )}
@@ -910,6 +963,7 @@ export default function App() {
                   <p><strong>Urgenza:</strong> {job.urgency}</p>
                   <p><strong>Importo concordato:</strong> {Number(job.acceptedQuote.amount).toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}</p>
                   {job.acceptedQuote.description && <p><strong>Dettagli preventivo:</strong> {job.acceptedQuote.description}</p>}
+                  <button type="button" onClick={() => openChat(job)} style={buttonStyle}>Apri chat con il cliente</button>
                 </div>
               ))}
             </div>
@@ -928,6 +982,31 @@ export default function App() {
           </>
         ) : (
           <h2>Ruolo non riconosciuto: {profile.role}</h2>
+        )}
+        {session && chatJobId && (
+          <div role="dialog" aria-modal="true" aria-label="Chat del lavoro" style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,23,42,.65)', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 12 }}>
+            <section style={{ width: '100%', maxWidth: 560, height: 'min(720px, 90vh)', background: '#fff', borderRadius: 16, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <header style={{ padding: 16, borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <div><strong>Chat privata</strong><div style={{ fontSize: 13, color: '#64748b' }}>{chatTitle}</div></div>
+                <button type="button" onClick={() => setChatJobId(null)} style={{ ...buttonStyle, background: '#475569' }}>Chiudi</button>
+              </header>
+              <div style={{ flex: 1, overflowY: 'auto', padding: 16, background: '#f8fafc' }}>
+                {chatMessages.length === 0 && <p style={{ color: '#64748b' }}>Nessun messaggio. Inizia la conversazione!</p>}
+                {chatMessages.map(m => (
+                  <div key={m.id} style={{ maxWidth: '85%', margin: m.sender_id === session.user.id ? '8px 0 8px auto' : '8px auto 8px 0', padding: 12, borderRadius: 12, background: m.sender_id === session.user.id ? '#dbeafe' : '#fff', border: '1px solid #e2e8f0', overflowWrap: 'anywhere' }}>
+                    <div style={{ fontSize: 12, fontWeight: 'bold', marginBottom: 4 }}>{m.sender_id === session.user.id ? 'Tu' : 'Interlocutore'}</div>
+                    <div style={{ whiteSpace: 'pre-wrap' }}>{m.body}</div>
+                    <div style={{ color: '#64748b', fontSize: 11, marginTop: 5 }}>{new Date(m.created_at).toLocaleString('it-IT')}</div>
+                  </div>
+                ))}
+              </div>
+              {chatError && <p style={{ color: '#b91c1c', padding: '0 16px' }}>{chatError}</p>}
+              <form onSubmit={sendChatMessage} style={{ padding: 12, borderTop: '1px solid #e2e8f0', display: 'flex', gap: 8 }}>
+                <input aria-label="Scrivi un messaggio" placeholder="Scrivi un messaggio..." value={chatText} maxLength={2000} onChange={e => setChatText(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: 0 }} required />
+                <button type="submit" disabled={chatSending || !chatText.trim()} style={{ ...buttonStyle, opacity: chatSending ? .6 : 1 }}>{chatSending ? 'Invio...' : 'Invia'}</button>
+              </form>
+            </section>
+          </div>
         )}
       </main>
 
