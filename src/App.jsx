@@ -16,6 +16,9 @@ export default function App() {
   const [quotesMessage, setQuotesMessage] = useState('');
   const [quotesLoading, setQuotesLoading] = useState(false);
   const [artisanJobs, setArtisanJobs] = useState([]);
+  const [assignedJobs, setAssignedJobs] = useState([]);
+  const [assignedLoading, setAssignedLoading] = useState(false);
+  const [assignedError, setAssignedError] = useState('');
   const [artisanMessage, setArtisanMessage] = useState('');
   const [activeQuoteJob, setActiveQuoteJob] = useState(null);
   const [quoteAmount, setQuoteAmount] = useState('');
@@ -89,6 +92,7 @@ export default function App() {
     }
     if (session && profile?.role === 'artisan') {
       loadArtisanJobs();
+      loadAssignedJobs();
     }
   }, [session, profile]);
 
@@ -164,6 +168,46 @@ export default function App() {
     }
 
     setArtisanJobs(data || []);
+  }
+
+  async function loadAssignedJobs() {
+    if (!session?.user?.id) return;
+    setAssignedLoading(true);
+    setAssignedError('');
+    // RLS limita la lettura ai soli preventivi dell'artigiano autenticato.
+    const { data: acceptedQuotes, error: quotesError } = await supabase
+      .from('quotes')
+      .select('id, job_id, amount, description, status, created_at')
+      .eq('artisan_id', session.user.id)
+      .eq('status', 'accepted');
+
+    if (quotesError) {
+      setAssignedError('Impossibile caricare i preventivi accettati: ' + quotesError.message);
+      setAssignedLoading(false);
+      return;
+    }
+    if (!acceptedQuotes?.length) {
+      setAssignedJobs([]);
+      setAssignedLoading(false);
+      return;
+    }
+    const jobIds = [...new Set(acceptedQuotes.map(q => q.job_id))];
+    const { data: assigned, error: jobsError } = await supabase
+      .from('jobs')
+      .select('id, title, description, category, town, province, urgency, status, accepted_quote_id, created_at')
+      .in('id', jobIds)
+      .eq('status', 'assigned');
+    if (jobsError) {
+      setAssignedError('Impossibile caricare i lavori assegnati: ' + jobsError.message);
+      setAssignedLoading(false);
+      return;
+    }
+    const byId = new Map(acceptedQuotes.map(q => [q.id, q]));
+    setAssignedJobs((assigned || [])
+      .filter(job => byId.has(job.accepted_quote_id))
+      .map(job => ({ ...job, acceptedQuote: byId.get(job.accepted_quote_id) }))
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
+    setAssignedLoading(false);
   }
 
   async function submitQuote(event) {
@@ -844,6 +888,28 @@ export default function App() {
                       Invia un preventivo
                     </button>
                   )}
+                </div>
+              ))}
+            </div>
+            <div style={{ background: 'white', padding: 20, borderRadius: 14, marginTop: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <h3 style={{ margin: 0 }}>I miei lavori ({assignedJobs.length})</h3>
+                <button type="button" onClick={loadAssignedJobs} style={{ ...buttonStyle, background: '#475569' }}>Aggiorna</button>
+              </div>
+              {assignedLoading ? <p>Caricamento lavori assegnati...</p> : null}
+              {assignedError ? <p style={{ color: '#b91c1c' }}>{assignedError}</p> : null}
+              {!assignedLoading && !assignedError && assignedJobs.length === 0 ? (
+                <p>Non hai ancora lavori assegnati. Quando un cliente accetta un tuo preventivo, lo troverai qui.</p>
+              ) : assignedJobs.map(job => (
+                <div key={job.id} style={{ border: '1px solid #bfdbfe', background: '#eff6ff', borderRadius: 12, padding: 16, marginTop: 15 }}>
+                  <p style={{ color: '#166534', fontWeight: 'bold', marginTop: 0 }}>✓ Preventivo accettato · Lavoro assegnato</p>
+                  <h3>{job.title}</h3>
+                  <p>{job.description}</p>
+                  <p><strong>Categoria:</strong> {job.category}</p>
+                  <p><strong>Località:</strong> {job.town} ({job.province})</p>
+                  <p><strong>Urgenza:</strong> {job.urgency}</p>
+                  <p><strong>Importo concordato:</strong> {Number(job.acceptedQuote.amount).toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}</p>
+                  {job.acceptedQuote.description && <p><strong>Dettagli preventivo:</strong> {job.acceptedQuote.description}</p>}
                 </div>
               ))}
             </div>
