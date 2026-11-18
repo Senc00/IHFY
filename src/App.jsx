@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Search, Briefcase, Menu, User, LogOut, PlusCircle, ClipboardList } from 'lucide-react';
+import { Search, Briefcase, Menu, User, LogOut, PlusCircle, ClipboardList, CheckCircle2, Clock3, ArrowRight, Camera, Wrench, MessageCircle, ShieldCheck, Zap, Paintbrush, Leaf } from 'lucide-react';
 import { supabase } from './supabase';
 
 export default function App() {
@@ -550,33 +550,39 @@ export default function App() {
   return (
     <div className="ihfy-premium" style={{
       fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif",
-      background: '#f6f8fc',
+      background: '#fafbfc',
       minHeight: '100vh',
       color: '#202938',
       paddingBottom: 85
     }}>
 
       <style>{`
-        .ihfy-premium { --ihfy-blue:#2563eb; --ihfy-teal:#0d9488; color:#172033; }
+        .ihfy-premium { --ihfy-blue:#2563eb; --ihfy-teal:#0d9488; --ihfy-ink:#172033; --ihfy-muted:#718096; color:var(--ihfy-ink); }
         .ihfy-premium * { box-sizing:border-box; }
-        .ihfy-premium .ihfy-topbar { position:sticky; top:0; z-index:30; border-bottom:1px solid #e8edf5; box-shadow:0 5px 22px rgba(32,61,108,.035); }
+        .ihfy-premium .ihfy-topbar { position:sticky; top:0; z-index:30; border-bottom:1px solid #eef0f4; box-shadow:0 3px 20px rgba(20,38,66,.035); }
         .ihfy-premium .ihfy-topbar h1 { letter-spacing:-1.5px; font-size:29px; font-weight:850; }
         .ihfy-premium .ihfy-main { max-width:1100px; margin:0 auto; padding:28px 20px 50px !important; }
-        .ihfy-premium .ihfy-main > h2, .ihfy-premium h2 { letter-spacing:-.65px; }
-        .ihfy-premium h3 { letter-spacing:-.35px; }
+        .ihfy-premium .ihfy-main h2 { letter-spacing:-.7px; }
+        .ihfy-premium .ihfy-main h3 { letter-spacing:-.35px; }
         .ihfy-premium .ihfy-main section, .ihfy-premium .ihfy-main > div:not([role=dialog]) { border-radius:18px; }
-        .ihfy-premium .ihfy-main div[style*="background: white"],
-        .ihfy-premium .ihfy-main div[style*="background: rgb(255, 255, 255)"] { border:1px solid #e9eef6; box-shadow:0 8px 26px rgba(26,51,94,.045); }
-        .ihfy-premium button { transition: transform .15s ease, box-shadow .15s ease, filter .15s ease; }
+        .ihfy-premium .ihfy-main div[style*="background: white"], .ihfy-premium .ihfy-main div[style*="background: rgb(255, 255, 255)"] { border:1px solid #edf0f5; box-shadow:0 8px 26px rgba(26,51,94,.035); }
+        .ihfy-premium button { transition:transform .15s ease,box-shadow .15s ease,filter .15s ease; }
         .ihfy-premium button:not(:disabled):hover { filter:brightness(1.035); transform:translateY(-1px); }
-        .ihfy-premium button:focus-visible, .ihfy-premium input:focus-visible,
-        .ihfy-premium textarea:focus-visible, .ihfy-premium select:focus-visible { outline:3px solid rgba(20,184,166,.4); outline-offset:2px; }
-        .ihfy-premium input, .ihfy-premium textarea, .ihfy-premium select { background:#fff; border-color:#dfe7f1 !important; }
-        .ihfy-premium .ihfy-bottom-nav { left:0; right:0; width:100% !important; z-index:35; border-top:1px solid #e6edf5; box-shadow:0 -6px 24px rgba(20,46,90,.06); padding:13px 12px max(13px,env(safe-area-inset-bottom)) !important; }
-        .ihfy-premium .ihfy-bottom-nav button { flex-direction:column; justify-content:center; gap:5px !important; min-width:74px; font-size:12px; }
-        @media (min-width:800px) { .ihfy-premium .ihfy-main { padding:36px 32px 70px !important; } }
-        @media (max-width:480px) { .ihfy-premium .ihfy-main { padding:18px 14px 45px !important; } .ihfy-premium .ihfy-topbar { padding:16px !important; } }
-        @media (prefers-reduced-motion:reduce) { .ihfy-premium button { transition:none; } }
+        .ihfy-premium button:focus-visible, .ihfy-premium input:focus-visible, .ihfy-premium textarea:focus-visible, .ihfy-premium select:focus-visible { outline:3px solid rgba(37,99,235,.25); outline-offset:2px; }
+        .ihfy-premium input,.ihfy-premium textarea,.ihfy-premium select { background:#fff; border-color:#e2e8f0 !important; }
+        .ihfy-premium .ihfy-bottom-nav { left:0;right:0;width:100% !important;z-index:35;border-top:1px solid #edf0f5;box-shadow:0 -6px 24px rgba(20,46,90,.045);padding:13px 12px max(13px,env(safe-area-inset-bottom)) !important; }
+        .ihfy-premium .ihfy-bottom-nav button { flex-direction:column;justify-content:center;gap:5px !important;min-width:74px;font-size:12px; }
+        .ihfy-premium .ihfy-shortcuts { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:24px 0 32px; }
+        .ihfy-premium .ihfy-shortcut { background:#fff;color:#334155;border:1px solid #edf0f5;border-radius:20px;padding:18px 8px 14px;min-height:118px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;box-shadow:0 10px 24px rgba(35,49,70,.055);cursor:pointer;font-weight:650;font-size:13px;text-align:center; }
+        .ihfy-premium .ihfy-shortcut-icon { width:46px;height:46px;border-radius:15px;background:#f0f2f5;color:#91a0af;display:flex;align-items:center;justify-content:center; }
+        .ihfy-premium .ihfy-shortcut:active { transform:scale(.98); }
+        .ihfy-premium .ihfy-recent-card { width:100%;display:flex;align-items:center;text-align:left;gap:13px;background:#fff;border:1px solid #edf0f5;border-radius:18px;padding:16px;cursor:pointer;box-shadow:0 8px 22px rgba(26,51,94,.04);color:#172033; }
+        .ihfy-premium .ihfy-recent-icon { width:52px;height:52px;flex-shrink:0;background:#f0f2f5;border-radius:14px;color:#91a0af;display:flex;align-items:center;justify-content:center; }
+        .ihfy-premium .ihfy-status-pill { display:inline-block;border-radius:20px;background:#e8f2ff;color:#2563eb;padding:5px 10px;font-size:11px;font-weight:700;margin-top:7px; }
+        .ihfy-premium .ihfy-section-heading { display:flex;justify-content:space-between;align-items:center;gap:12px;margin:10px 0 16px; }
+        @media(min-width:800px) { .ihfy-premium .ihfy-main { padding:36px 32px 70px !important; } }
+        @media(max-width:480px) { .ihfy-premium .ihfy-main { padding:18px 14px 45px !important; } .ihfy-premium .ihfy-topbar { padding:16px !important; } .ihfy-premium .ihfy-shortcuts { gap:8px; } .ihfy-premium .ihfy-shortcut { min-height:108px;font-size:11px;padding:12px 4px; } .ihfy-premium .ihfy-shortcut-icon { width:40px;height:40px; } }
+        @media(prefers-reduced-motion:reduce) { .ihfy-premium button { transition:none; } }
       `}</style>
       <header className="ihfy-topbar" style={{
         background: '#fff',
@@ -709,43 +715,40 @@ export default function App() {
 
             {activeTab === 'Home' && (
               <>
-                <div style={{
-                  background: 'white',
-                  padding: 20,
-                  borderRadius: 14,
-                  marginTop: 20
-                }}>
-                  <h3>La tua area cliente</h3>
-                  <p>Trova professionisti affidabili per i tuoi lavori.</p>
-                  <button
-                    style={buttonStyle}
-                    onClick={() => {
-                      setMessage('');
-                      setShowForm(true);
-                    }}
-                  >
-                    <PlusCircle size={18} /> Pubblica una richiesta
-                  </button>
-                </div>
-
-                <h3 style={{ marginTop: 30 }}>Esplora le categorie</h3>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: 15
-                }}>
-                  {['Idraulici', 'Elettricisti', 'Imbianchini', 'Giardinieri'].map(item => (
-                    <div key={item} style={{
-                      background: 'white',
-                      padding: 22,
-                      borderRadius: 14,
-                      textAlign: 'center'
-                    }}>
-                      <Briefcase size={28} color="#2563eb" />
-                      <p>{item}</p>
-                    </div>
+                <div style={{marginTop:8,marginBottom:6,color:'#64748b'}}>Gestisci le tue richieste e i tuoi lavori</div>
+                <div className="ihfy-shortcuts">
+                  {[
+                    { label:'Nuova richiesta', Icon:PlusCircle, action:()=>{setMessage('');setShowForm(true);} },
+                    { label:'Le mie richieste', Icon:ClipboardList, action:()=>setActiveTab('Richieste') },
+                    { label:'Lavori in corso', Icon:Briefcase, action:()=>setActiveTab('Richieste') },
+                    { label:'Completati', Icon:CheckCircle2, action:()=>setActiveTab('Richieste') }
+                  ].map(({label,Icon,action})=>(
+                    <button key={label} type="button" className="ihfy-shortcut" onClick={action}>
+                      <span className="ihfy-shortcut-icon"><Icon size={23} strokeWidth={1.9}/></span>
+                      <span>{label}</span>
+                    </button>
                   ))}
                 </div>
+                <div className="ihfy-section-heading">
+                  <h3 style={{margin:0,fontSize:21}}>Richieste recenti</h3>
+                  <button type="button" onClick={()=>setActiveTab('Richieste')} style={{border:0,background:'transparent',color:'#2563eb',fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>Vedi tutte <ArrowRight size={17}/></button>
+                </div>
+                {jobs.length === 0 ? <div style={{background:'#fff',border:'1px solid #edf0f5',padding:22,borderRadius:18,color:'#64748b'}}>Non hai ancora richieste. Premi “Nuova richiesta” per iniziare.</div> : (
+                  <div style={{display:'grid',gap:12}}>
+                    {jobs.slice(0,3).map(job=>(
+                      <button type="button" className="ihfy-recent-card" key={job.id} onClick={()=>setActiveTab('Richieste')}>
+                        <span className="ihfy-recent-icon"><Wrench size={25}/></span>
+                        <span style={{flex:1,minWidth:0}}>
+                          <strong style={{display:'block',fontSize:15,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{job.title}</strong>
+                          <span style={{display:'block',color:'#64748b',fontSize:12,marginTop:3}}>{job.category} · {job.town}</span>
+                          <span className="ihfy-status-pill">{job.status === 'completed' ? 'Completato' : job.status === 'work_done' ? 'In attesa del cliente' : job.status === 'assigned' ? 'Lavoro assegnato' : 'Richiesta aperta'}</span>
+                        </span>
+                        <ArrowRight size={18} color="#94a3b8"/>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div style={{marginTop:30,color:'#64748b',fontSize:13}}>IHFY · I tuoi lavori, in un unico posto.</div>
               </>
             )}
 
@@ -1171,9 +1174,9 @@ export default function App() {
           padding: '16px 0'
         }}>
           {[
-            { name: 'Home', icon: <Search size={18} /> },
-            { name: 'Richieste', icon: <ClipboardList size={18} /> },
-            { name: 'Profilo', icon: <User size={18} /> }
+            { name: 'Home', icon: <Briefcase size={20} /> },
+            { name: 'Richieste', icon: <ClipboardList size={20} /> },
+            { name: 'Profilo', icon: <User size={20} /> }
           ].map(tab => (
             <button
               key={tab.name}
@@ -1185,7 +1188,7 @@ export default function App() {
               style={{
                 border: 'none',
                 background: 'none',
-                color: activeTab === tab.name ? '#2563eb' : '#777',
+                color: activeTab === tab.name ? '#2563eb' : '#9aa6b5',
                 fontWeight: 'bold',
                 display: 'flex',
                 alignItems: 'center',
