@@ -548,14 +548,37 @@ export default function App() {
   };
 
   return (
-    <div style={{
-      fontFamily: 'Arial, sans-serif',
-      background: '#f7f8fa',
+    <div className="ihfy-premium" style={{
+      fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif",
+      background: '#f6f8fc',
       minHeight: '100vh',
       color: '#202938',
       paddingBottom: 85
     }}>
-      <header style={{
+
+      <style>{`
+        .ihfy-premium { --ihfy-blue:#2563eb; --ihfy-teal:#0d9488; color:#172033; }
+        .ihfy-premium * { box-sizing:border-box; }
+        .ihfy-premium .ihfy-topbar { position:sticky; top:0; z-index:30; border-bottom:1px solid #e8edf5; box-shadow:0 5px 22px rgba(32,61,108,.035); }
+        .ihfy-premium .ihfy-topbar h1 { letter-spacing:-1.5px; font-size:29px; font-weight:850; }
+        .ihfy-premium .ihfy-main { max-width:1100px; margin:0 auto; padding:28px 20px 50px !important; }
+        .ihfy-premium .ihfy-main > h2, .ihfy-premium h2 { letter-spacing:-.65px; }
+        .ihfy-premium h3 { letter-spacing:-.35px; }
+        .ihfy-premium .ihfy-main section, .ihfy-premium .ihfy-main > div:not([role=dialog]) { border-radius:18px; }
+        .ihfy-premium .ihfy-main div[style*="background: white"],
+        .ihfy-premium .ihfy-main div[style*="background: rgb(255, 255, 255)"] { border:1px solid #e9eef6; box-shadow:0 8px 26px rgba(26,51,94,.045); }
+        .ihfy-premium button { transition: transform .15s ease, box-shadow .15s ease, filter .15s ease; }
+        .ihfy-premium button:not(:disabled):hover { filter:brightness(1.035); transform:translateY(-1px); }
+        .ihfy-premium button:focus-visible, .ihfy-premium input:focus-visible,
+        .ihfy-premium textarea:focus-visible, .ihfy-premium select:focus-visible { outline:3px solid rgba(20,184,166,.4); outline-offset:2px; }
+        .ihfy-premium input, .ihfy-premium textarea, .ihfy-premium select { background:#fff; border-color:#dfe7f1 !important; }
+        .ihfy-premium .ihfy-bottom-nav { left:0; right:0; width:100% !important; z-index:35; border-top:1px solid #e6edf5; box-shadow:0 -6px 24px rgba(20,46,90,.06); padding:13px 12px max(13px,env(safe-area-inset-bottom)) !important; }
+        .ihfy-premium .ihfy-bottom-nav button { flex-direction:column; justify-content:center; gap:5px !important; min-width:74px; font-size:12px; }
+        @media (min-width:800px) { .ihfy-premium .ihfy-main { padding:36px 32px 70px !important; } }
+        @media (max-width:480px) { .ihfy-premium .ihfy-main { padding:18px 14px 45px !important; } .ihfy-premium .ihfy-topbar { padding:16px !important; } }
+        @media (prefers-reduced-motion:reduce) { .ihfy-premium button { transition:none; } }
+      `}</style>
+      <header className="ihfy-topbar" style={{
         background: '#fff',
         padding: 20,
         display: 'flex',
@@ -574,7 +597,7 @@ export default function App() {
         ) : <Menu size={26} />}
       </header>
 
-      <main style={{ padding: 24 }}>
+      <main className="ihfy-main" style={{ padding: 24 }}>
         {!session ? (
           <section style={{
             maxWidth: 460,
@@ -1070,7 +1093,7 @@ export default function App() {
               {!assignedLoading && !assignedError && assignedJobs.length === 0 ? (
                 <p>Non hai ancora lavori assegnati. Quando un cliente accetta un tuo preventivo, lo troverai qui.</p>
               ) : assignedJobs.map(job => (
-                <div key={job.id} style={{ border: '1px solid #bfdbfe', background: '#eff6ff', borderRadius: 12, padding: 16, marginTop: 15 }}>
+                <div key={job.id} style={{ border: '1px solid #dce8f6', background: '#ffffff', borderRadius: 12, padding: 16, marginTop: 15 }}>
                   <p style={{ color: '#166534', fontWeight: 'bold', marginTop: 0 }}>
                     {job.status === 'completed' ? '✓ Lavoro completato' : job.status === 'work_done' ? 'In attesa della conferma del cliente' : '✓ Preventivo accettato · Lavoro assegnato'}
                   </p>
@@ -1138,7 +1161,7 @@ export default function App() {
       </main>
 
       {session && profile?.role === 'client' && (
-        <nav style={{
+        <nav className="ihfy-bottom-nav" style={{
           position: 'fixed',
           bottom: 0,
           width: '100%',
