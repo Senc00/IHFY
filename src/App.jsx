@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Search, Briefcase, Menu, User, LogOut, PlusCircle, ClipboardList, CheckCircle2, Clock3, ArrowRight, Camera, Wrench, MessageCircle, ShieldCheck, Zap, Paintbrush, Leaf } from 'lucide-react';
+import { Search, Briefcase, Menu, User, LogOut, PlusCircle, ClipboardList, CheckCircle2, Clock3, ArrowRight, House, Camera, Wrench, MessageCircle, ShieldCheck, Zap, Paintbrush, Leaf } from 'lucide-react';
 import { supabase } from './supabase';
 
 export default function App() {
@@ -528,6 +528,17 @@ export default function App() {
     await loadJobs();
   }
 
+  function goHome() {
+    setActiveTab('Home');
+    setSelectedJobId(null);
+    setJobFilter('all');
+    setShowForm(false);
+    setChatJobId(null);
+    setActiveQuoteJob(null);
+    setMessage('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   if (loading) {
     return <div style={{ padding: 30 }}>Caricamento IHFY...</div>;
   }
@@ -597,13 +608,18 @@ export default function App() {
       }}>
         <h1 style={{ color: '#2563eb', margin: 0 }}>IHFY</h1>
         {session ? (
-          <button onClick={logout} style={{
-            border: 'none',
-            background: 'none',
-            cursor: 'pointer'
-          }}>
-            <LogOut size={20} /> Esci
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button type="button" onClick={goHome} aria-label="Torna alla Home"
+              style={{ border: '1px solid #e2e8f0', background: '#f1f5f9', color: '#64748b',
+                borderRadius: 12, padding: '10px 12px', display: 'inline-flex',
+                alignItems: 'center', gap: 7, cursor: 'pointer', fontWeight: 700 }}>
+              <House size={19} /> <span>Home</span>
+            </button>
+            <button onClick={logout} style={{ border: 'none', background: 'none',
+              color: '#64748b', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <LogOut size={19} /> Esci
+            </button>
+          </div>
         ) : <Menu size={26} />}
       </header>
 
@@ -760,9 +776,15 @@ export default function App() {
               <>
                 <h3>{selectedJobId ? 'Dettaglio richiesta' : jobFilter === 'active' ? 'Lavori in corso' : jobFilter === 'completed' ? 'Lavori completati' : 'Le mie richieste'}</h3>
                 {selectedJobId && (
-                  <button type="button" onClick={() => setSelectedJobId(null)} style={{ ...buttonStyle, background:'#64748b', marginBottom:12 }}>
-                    ← Torna alle richieste
-                  </button>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                    <button type="button" onClick={goHome} style={{ ...buttonStyle, background: '#64748b' }}>
+                      ← Torna alla Home
+                    </button>
+                    <button type="button" onClick={() => setSelectedJobId(null)}
+                      style={{ ...buttonStyle, background: '#e2e8f0', color: '#334155' }}>
+                      Tutte le richieste
+                    </button>
+                  </div>
                 )}
                 <button
                   style={buttonStyle}
@@ -1189,7 +1211,7 @@ export default function App() {
           padding: '16px 0'
         }}>
           {[
-            { name: 'Home', icon: <Briefcase size={20} /> },
+            { name: 'Home', icon: <House size={20} /> },
             { name: 'Richieste', icon: <ClipboardList size={20} /> },
             { name: 'Profilo', icon: <User size={20} /> }
           ].map(tab => (
