@@ -21,6 +21,7 @@ export default function App() {
   const [quoteAmount, setQuoteAmount] = useState('');
   const [quoteDescription, setQuoteDescription] = useState('');
   const [quoteSaving, setQuoteSaving] = useState(false);
+  const [acceptingQuoteId, setAcceptingQuoteId] = useState(null);
   const [authMode, setAuthMode] = useState('login');
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
@@ -130,6 +131,22 @@ export default function App() {
     }
 
     setQuotes(data || []);
+  }
+
+  async function acceptQuote(quote) {
+    if (!session || !window.confirm('Vuoi accettare questo preventivo? Gli altri preventivi per lo stesso lavoro saranno rifiutati.')) return;
+    setQuotesMessage('');
+    setAcceptingQuoteId(quote.id);
+    try {
+      const { error } = await supabase.rpc('accept_quote', { p_quote_id: quote.id });
+      if (error) throw error;
+      await loadJobs();
+      setMessage('Preventivo accettato! Il lavoro è stato assegnato.');
+    } catch (error) {
+      setQuotesMessage('Impossibile accettare il preventivo: ' + error.message);
+    } finally {
+      setAcceptingQuoteId(null);
+    }
   }
 
   async function loadArtisanJobs() {
@@ -566,6 +583,19 @@ export default function App() {
                           <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: 13 }}>
                             Stato: {quote.status || 'pending'} · Inviato il {new Date(quote.created_at).toLocaleDateString('it-IT')}
                           </p>
+                          {quote.status === 'accepted' && (
+                            <p style={{ color: '#15803d', fontWeight: 'bold' }}>✓ Preventivo accettato</p>
+                          )}
+                          {job.status === 'open' && (quote.status === 'pending' || !quote.status) && (
+                            <button
+                              type="button"
+                              disabled={acceptingQuoteId !== null}
+                              onClick={() => acceptQuote(quote)}
+                              style={{ ...buttonStyle, marginTop: 10, opacity: acceptingQuoteId !== null ? 0.6 : 1 }}
+                            >
+                              {acceptingQuoteId === quote.id ? 'Accettazione in corso...' : 'Accetta preventivo'}
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>
