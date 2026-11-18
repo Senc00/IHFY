@@ -9,6 +9,8 @@ export default function App() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [selectedJobId, setSelectedJobId] = useState(null);
+  const [jobFilter, setJobFilter] = useState('all');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [jobs, setJobs] = useState([]);
@@ -520,6 +522,8 @@ export default function App() {
       urgency: 'medium'
     });
     setShowForm(false);
+    setSelectedJobId(null);
+    setJobFilter('all');
     setActiveTab('Richieste');
     await loadJobs();
   }
@@ -719,9 +723,9 @@ export default function App() {
                 <div className="ihfy-shortcuts">
                   {[
                     { label:'Nuova richiesta', Icon:PlusCircle, action:()=>{setMessage('');setShowForm(true);} },
-                    { label:'Le mie richieste', Icon:ClipboardList, action:()=>setActiveTab('Richieste') },
-                    { label:'Lavori in corso', Icon:Briefcase, action:()=>setActiveTab('Richieste') },
-                    { label:'Completati', Icon:CheckCircle2, action:()=>setActiveTab('Richieste') }
+                    { label:'Le mie richieste', Icon:ClipboardList, action:()=>{setSelectedJobId(null);setJobFilter('all');setActiveTab('Richieste');} },
+                    { label:'Lavori in corso', Icon:Briefcase, action:()=>{setSelectedJobId(null);setJobFilter('active');setActiveTab('Richieste');} },
+                    { label:'Completati', Icon:CheckCircle2, action:()=>{setSelectedJobId(null);setJobFilter('completed');setActiveTab('Richieste');} }
                   ].map(({label,Icon,action})=>(
                     <button key={label} type="button" className="ihfy-shortcut" onClick={action}>
                       <span className="ihfy-shortcut-icon"><Icon size={23} strokeWidth={1.9}/></span>
@@ -731,12 +735,12 @@ export default function App() {
                 </div>
                 <div className="ihfy-section-heading">
                   <h3 style={{margin:0,fontSize:21}}>Richieste recenti</h3>
-                  <button type="button" onClick={()=>setActiveTab('Richieste')} style={{border:0,background:'transparent',color:'#2563eb',fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>Vedi tutte <ArrowRight size={17}/></button>
+                  <button type="button" onClick={()=>{setSelectedJobId(null);setJobFilter('all');setActiveTab('Richieste');}} style={{border:0,background:'transparent',color:'#2563eb',fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>Vedi tutte <ArrowRight size={17}/></button>
                 </div>
                 {jobs.length === 0 ? <div style={{background:'#fff',border:'1px solid #edf0f5',padding:22,borderRadius:18,color:'#64748b'}}>Non hai ancora richieste. Premi “Nuova richiesta” per iniziare.</div> : (
                   <div style={{display:'grid',gap:12}}>
                     {jobs.slice(0,3).map(job=>(
-                      <button type="button" className="ihfy-recent-card" key={job.id} onClick={()=>setActiveTab('Richieste')}>
+                      <button type="button" className="ihfy-recent-card" key={job.id} onClick={()=>{setSelectedJobId(job.id);setJobFilter('all');setActiveTab('Richieste');}}>
                         <span className="ihfy-recent-icon"><Wrench size={25}/></span>
                         <span style={{flex:1,minWidth:0}}>
                           <strong style={{display:'block',fontSize:15,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{job.title}</strong>
@@ -754,7 +758,12 @@ export default function App() {
 
             {activeTab === 'Richieste' && (
               <>
-                <h3>Le mie richieste</h3>
+                <h3>{selectedJobId ? 'Dettaglio richiesta' : jobFilter === 'active' ? 'Lavori in corso' : jobFilter === 'completed' ? 'Lavori completati' : 'Le mie richieste'}</h3>
+                {selectedJobId && (
+                  <button type="button" onClick={() => setSelectedJobId(null)} style={{ ...buttonStyle, background:'#64748b', marginBottom:12 }}>
+                    ← Torna alle richieste
+                  </button>
+                )}
                 <button
                   style={buttonStyle}
                   onClick={() => {
@@ -765,9 +774,9 @@ export default function App() {
                   + Nuova richiesta
                 </button>
 
-                {jobs.length === 0 ? (
-                  <p>Non hai ancora pubblicato richieste.</p>
-                ) : jobs.map(job => (
+                {jobs.filter(job => selectedJobId ? job.id === selectedJobId : jobFilter === 'active' ? ['assigned','work_done'].includes(job.status) : jobFilter === 'completed' ? job.status === 'completed' : true).length === 0 ? (
+                  <p>Nessuna richiesta in questa sezione.</p>
+                ) : jobs.filter(job => selectedJobId ? job.id === selectedJobId : jobFilter === 'active' ? ['assigned','work_done'].includes(job.status) : jobFilter === 'completed' ? job.status === 'completed' : true).map(job => (
                   <div key={job.id} style={{
                     background: 'white',
                     padding: 18,
@@ -866,14 +875,19 @@ export default function App() {
             )}
 
             {showForm && (
-              <div style={{
+              <div role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setShowForm(false); }} style={{ position:'fixed', inset:0, zIndex:100, background:'rgba(15,23,42,.55)', display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+              <div role="dialog" aria-modal="true" aria-label="Nuova richiesta" style={{
+                width:'100%', maxWidth:540, maxHeight:'min(90dvh,820px)', overflowY:'auto',
                 background: 'white',
                 padding: 20,
                 borderRadius: 14,
                 marginTop: 20,
                 border: '1px solid #ddd'
               }}>
-                <h2>Pubblica una richiesta</h2>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12}}>
+                  <h2 style={{marginTop:0}}>Pubblica una richiesta</h2>
+                  <button type="button" aria-label="Chiudi finestra" disabled={saving} onClick={()=>setShowForm(false)} style={{border:0,background:'#f1f5f9',borderRadius:12,padding:'8px 12px',cursor:'pointer'}}>✕</button>
+                </div>
 
                 <form onSubmit={publishJob}>
                   <label>Titolo del lavoro</label>
@@ -970,6 +984,7 @@ export default function App() {
                     Annulla
                   </button>
                 </form>
+              </div>
               </div>
             )}
           </>
@@ -1182,6 +1197,8 @@ export default function App() {
               key={tab.name}
               onClick={() => {
                 setActiveTab(tab.name);
+                setSelectedJobId(null);
+                setJobFilter('all');
                 setShowForm(false);
                 setMessage('');
               }}
