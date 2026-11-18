@@ -21,6 +21,9 @@ export default function App() {
   const [assignedError, setAssignedError] = useState('');
   const [completionSavingId, setCompletionSavingId] = useState(null);
   const [completionMessage, setCompletionMessage] = useState('');
+  const [jobPhotos, setJobPhotos] = useState({});
+  const [photoBusy, setPhotoBusy] = useState(null);
+  const [photoError, setPhotoError] = useState('');
   const [chatJobId, setChatJobId] = useState(null);
   const [chatTitle, setChatTitle] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
@@ -148,6 +151,79 @@ export default function App() {
     if (data) setChatMessages(data);
   }
 
+  // Foto private: URL firmati con scadenza di 1 ora, generati per ogni caricamento.
+  async function loadPhotosForJobs(jobList) {
+    const ids = [...new Set((jobList || []).map(j => j.id))];
+    if (!ids.length) { setJobPhotos({}); return; }
+    const { data, error } = await supabase.from('job_photos')
+      .select('id, job_id, uploader_id, photo_type, storage_path, created_at')
+      .in('job_id', ids).order('created_at', { ascending: true });
+    if (error) { setPhotoError('Errore lettura foto: ' + error.message); return; }
+    const rows = data || [];
+    const signed = await Promise.all(rows.map(async p => {
+      const { data: urlData, error: urlError } = await supabase.storage
+        .from('job-photos').createSignedUrl(p.storage_path, 3600);
+      return { ...p, url: urlError ? null : urlData?.signedUrl };
+    }));
+    setJobPhotos(previous => {
+      const next = { ...previous };
+      ids.forEach(id => { next[id] = signed.filter(p => p.job_id === id); });
+      return next;
+    });
+  }
+
+  async function uploadJobPhoto(job, type, event) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !session?.user?.id) return;
+    const allowed = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+    if (!allowed[file.type]) { setPhotoError('Sono consentite solo immagini JPG, PNG o WebP.'); return; }
+    if (file.size > 5 * 1024 * 1024) { setPhotoError('La foto deve pesare al massimo 5 MB.'); return; }
+    setPhotoError('');
+    setPhotoBusy(job.id);
+    const path = `${job.id}/${session.user.id}/${crypto.randomUUID()}.${allowed[file.type]}`;
+    try {
+      const { error: uploadError } = await supabase.storage.from('job-photos')
+        .upload(path, file, { contentType: file.type, upsert: false });
+      if (uploadError) throw uploadError;
+      const { error: recordError } = await supabase.from('job_photos').insert({
+        job_id: job.id, uploader_id: session.user.id,
+        photo_type: type, storage_path: path
+      });
+      if (recordError) throw recordError;
+      await loadPhotosForJobs([{ id: job.id }]);
+    } catch (error) {
+      setPhotoError('Caricamento foto non riuscito: ' + error.message);
+    } finally {
+      setPhotoBusy(null);
+    }
+  }
+
+  function PhotoGallery({ job, allowUpload, type }) {
+    const photos = (jobPhotos[job.id] || []).filter(p => p.photo_type === type);
+    return (
+      <div style={{ marginTop: 14, padding: 12, border: '1px solid #e2e8f0', borderRadius: 10 }}>
+        <strong>{type === 'before' ? 'Foto del problema' : 'Foto del lavoro eseguito'}</strong>
+        {photos.length === 0 && <p style={{ color: '#64748b' }}>Nessuna foto caricata.</p>}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 10 }}>
+          {photos.map(p => p.url ? (
+            <a key={p.id} href={p.url} target="_blank" rel="noreferrer" title="Apri foto">
+              <img src={p.url} alt={type === 'before' ? 'Foto del problema' : 'Foto del lavoro eseguito'}
+                style={{ width: 110, height: 110, objectFit: 'cover', borderRadius: 8 }} />
+            </a>
+          ) : <span key={p.id}>Foto non disponibile</span>)}
+        </div>
+        {allowUpload && (
+          <label style={{ display: 'inline-block', marginTop: 12, cursor: photoBusy ? 'wait' : 'pointer', color: '#2563eb', fontWeight: 'bold' }}>
+            {photoBusy === job.id ? 'Caricamento...' : '+ Aggiungi foto (max 5 MB)'}
+            <input type="file" accept="image/jpeg,image/png,image/webp" disabled={photoBusy !== null}
+              onChange={event => uploadJobPhoto(job, type, event)} style={{ display: 'block', marginTop: 6, maxWidth: '100%' }} />
+          </label>
+        )}
+      </div>
+    );
+  }
+
   async function loadJobs() {
     const { data, error } = await supabase
       .from('jobs')
@@ -161,6 +237,7 @@ export default function App() {
     }
 
     setJobs(data || []);
+    await loadPhotosForJobs(data || []);
     await loadClientQuotes(data || []);
   }
 
@@ -240,6 +317,8 @@ export default function App() {
     }
 
     setArtisanJobs(data || []);
+    await loadPhotosForJobs(data || []);
+
   }
 
   async function loadAssignedJobs() {
@@ -280,6 +359,7 @@ export default function App() {
       .map(job => ({ ...job, acceptedQuote: byId.get(job.accepted_quote_id) }))
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
     setAssignedLoading(false);
+    await loadPhotosForJobs(assigned || []);
   }
 
   async function submitQuote(event) {
@@ -597,6 +677,7 @@ export default function App() {
             <p>Benvenuto nella tua area personale.</p>
 
             {completionMessage && <p style={{ fontWeight: 'bold' }}>{completionMessage}</p>}
+            {photoError && <p style={{ color: '#b91c1c' }}>{photoError}</p>}
             {message && (
               <p style={{ color: '#15803d', fontWeight: 'bold' }}>
                 {message}
@@ -671,6 +752,8 @@ export default function App() {
                     <p>{job.description}</p>
                     <p>{job.category} · {job.town} ({job.province})</p>
                     <p>Urgenza: {job.urgency}</p>
+                    <PhotoGallery job={job} type="before" allowUpload={['open','assigned','work_done'].includes(job.status)} />
+                    {job.status !== 'open' && <PhotoGallery job={job} type="after" allowUpload={false} />}
                     <p>Stato: {job.status === 'assigned' ? 'Assegnato' : job.status === 'work_done' ? 'Terminato dall’artigiano · da confermare' : job.status === 'completed' ? 'Completato' : job.status}</p>
                     {job.status === 'work_done' && (
                       <button type="button" disabled={completionSavingId !== null}
@@ -914,6 +997,7 @@ export default function App() {
                   <p><strong>Categoria:</strong> {job.category}</p>
                   <p><strong>Località:</strong> {job.town} ({job.province})</p>
                   <p><strong>Urgenza:</strong> {job.urgency}</p>
+                  <PhotoGallery job={job} type="before" allowUpload={false} />
 
                   {activeQuoteJob === job.id ? (
                     <form onSubmit={submitQuote}>
@@ -982,6 +1066,7 @@ export default function App() {
               {assignedLoading ? <p>Caricamento lavori assegnati...</p> : null}
               {assignedError ? <p style={{ color: '#b91c1c' }}>{assignedError}</p> : null}
               {completionMessage && <p>{completionMessage}</p>}
+              {photoError && <p style={{ color: '#b91c1c' }}>{photoError}</p>}
               {!assignedLoading && !assignedError && assignedJobs.length === 0 ? (
                 <p>Non hai ancora lavori assegnati. Quando un cliente accetta un tuo preventivo, lo troverai qui.</p>
               ) : assignedJobs.map(job => (
@@ -994,6 +1079,8 @@ export default function App() {
                   <p><strong>Categoria:</strong> {job.category}</p>
                   <p><strong>Località:</strong> {job.town} ({job.province})</p>
                   <p><strong>Urgenza:</strong> {job.urgency}</p>
+                  <PhotoGallery job={job} type="before" allowUpload={false} />
+                  <PhotoGallery job={job} type="after" allowUpload={['assigned','work_done'].includes(job.status)} />
                   <p><strong>Importo concordato:</strong> {Number(job.acceptedQuote.amount).toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}</p>
                   {job.acceptedQuote.description && <p><strong>Dettagli preventivo:</strong> {job.acceptedQuote.description}</p>}
                   {job.status === 'assigned' && (
